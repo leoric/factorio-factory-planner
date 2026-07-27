@@ -12,7 +12,7 @@ Date: 00. 00. 0000
 Version: 2.1.7
 Date: 24. 07. 2026
   Features:
-    - Added a "Swap Products click actions for macOS" preference: when enabled, left click edits and Cmd + left click adds a recipe in the Products view
+    - Added a "Swap Products click actions" preference: when enabled, left click edits and Cmd + left click adds a recipe in the Products view
 
 ---------------------------------------------------------------------------------------------------
 Version: 2.1.6
