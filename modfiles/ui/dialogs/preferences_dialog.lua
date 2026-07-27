@@ -286,6 +286,9 @@ local function handle_checkbox_preference_change(player, tags, event)
 
     elseif preference_name == "product_click_swap" then
         lib.gui.run_refresh(player, "item_boxes")
+
+    elseif preference_name == "product_click_swap" then
+        lib.gui.run_refresh(player, "item_boxes")
     end
 end
 
