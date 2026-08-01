@@ -230,7 +230,7 @@ function builders.machine(line, parent_flow, metadata)
         local machine_amount = line.machine_amount
         local tooltip = {"fp.subfloor_machine_amount", machine_amount, {"fp.pl_machine", machine_amount}}
         parent_flow.add{type="sprite-button", sprite="fp_generic_assembler", style="fflib_slot_button_disabled_small",
-            number=machine_amount, tooltip=tooltip}
+            number=machine_amount, tooltip=tooltip--[[@as LocalisedString]]}
     else  ---@cast line Line
         local machine = line.machine
         local machine_proto, quality_proto = machine.proto, machine.quality_proto
@@ -397,6 +397,9 @@ function builders.products(line, parent_flow, metadata)
     end
 
     add_catalysts(line, items_flow, "products", metadata)
+
+    items_flow.visible = #items_flow.children_names > 0
+    special_flow.visible = #special_flow.children_names > 0
 end
 
 ---@param line LineObject
@@ -440,6 +443,9 @@ function builders.byproducts(line, parent_flow, metadata)
 
         ::skip_byproduct::
     end
+
+    items_flow.visible = #items_flow.children_names > 0
+    special_flow.visible = #special_flow.children_names > 0
 end
 
 ---@param line Line
@@ -457,8 +463,8 @@ local function add_fuel(line, parent_flow, metadata)
         satisfaction_line, _ = lib.gui.calculate_satisfaction(fuel.satisfied_amount, fuel.amount)
     end
 
-    ---@type LocalisedString, LocalisedString
-    local name_line, temperature_line = {"fp.tt_title_with_note", fuel.proto.localised_name, {"fp.pu_fuel", 1}}, ""
+    local name_line = {"fp.tt_title_with_note", fuel.proto.localised_name, {"fp.pu_fuel", 1}} ---@as LocalisedString
+    local temperature_line = ""  ---@type LocalisedString
     local style = "fflib_slot_button_cyan_small"
 
     if fuel.proto.type == "fluid" then
@@ -473,8 +479,18 @@ local function add_fuel(line, parent_flow, metadata)
         end
     end
 
+    -- Note when this fuel doesn't carry enough energy to run the machine at full speed,
+    -- or so much of it that the machine can't use everything it takes in
+    local fuel_performance, wasted_share = line.machine:get_fuel_performance()
+    local performance_line = ""  ---@type LocalisedString
+    if fuel_performance < 1 then
+        performance_line = {"fp.fuel_limits_speed", math.floor(fuel_performance * 100)}
+    elseif wasted_share >= 0.01 then
+        performance_line = {"fp.fuel_energy_wasted", math.floor(wasted_share * 100)}
+    end
+
     local number_line = (number_tooltip) and {"", "\n", number_tooltip} or ""
-    local tooltip = {"", name_line, temperature_line, number_line, satisfaction_line,
+    local tooltip = {"", name_line, temperature_line, performance_line, number_line, satisfaction_line,
         "\n", MODIFIER_ACTIONS["act_on_line_fuel"].tooltip}
 
     ---@class ActOnLineFuelTags
@@ -592,6 +608,9 @@ function builders.ingredients(line, parent_flow, metadata)
     if line.class ~= "Floor" then  ---@cast line Line
         if line.machine.fuel then add_fuel(line, special_flow, metadata) end
     end
+
+    items_flow.visible = #items_flow.children_names > 0
+    special_flow.visible = #special_flow.children_names > 0
 end
 
 ---@param line LineObject

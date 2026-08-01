@@ -13,7 +13,7 @@ local TLProduct = require("backend.data.TLProduct")
 ---@field matrix_free_items (FPItemPrototype | FPPackedPrototype)[]
 ---@field blueprints_inventory LuaInventory
 ---@field notes string
----@field productivity_boni table<string, EffectValue>
+---@field productivity_boni table<string, IntegerEffectValue>
 ---@field first TLProduct?
 ---@field top_floor Floor
 ---@field linearly_dependant boolean?
@@ -166,20 +166,11 @@ end
 
 ---@param force LuaForce
 ---@param recipe_name string
----@return EffectValue productivity_bonus
+---@return IntegerEffectValue productivity_bonus
 function Factory:get_productivity_bonus(force, recipe_name)
     local custom_bonus = self.productivity_boni[recipe_name]
     if custom_bonus then return custom_bonus
     else return lib.get_recipe_productivity(force, recipe_name) end
-end
-
-
--- Only used when switching between belts and lanes
----@param new_defined_by ProductDefinedBy
-function Factory:update_product_definitions(new_defined_by)
-    for product in self:iterator() do
-        product:change_definition(new_defined_by)
-    end
 end
 
 
@@ -209,7 +200,7 @@ end
 ---@field matrix_free_items FPPackedPrototype[]
 ---@field blueprint_strings table<integer, string> sparse
 ---@field notes string
----@field productivity_boni table<string, EffectValue>
+---@field productivity_boni table<string, IntegerEffectValue>
 ---@field products PackedProduct[]
 ---@field top_floor PackedFloor
 

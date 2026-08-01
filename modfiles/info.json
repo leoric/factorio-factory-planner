@@ -1,7 +1,10 @@
 {
-    "name": "factoryplanner",
-    "version": "2.1.7",
-    "title": "Factory Planner",
-    "author": "Therenas",
-    "factorio_version": "2.1"
+  "name": "factoryplanner",
+  "version": "2.1.708",
+  "title": "Factory Planner",
+  "author": "Therenas",
+  "factorio_version": "2.1",
+  "dependencies": [
+    "base >= 2.1.7"
+  ]
 }

@@ -26,7 +26,7 @@ function _gui.switch.add_on_off(parent_flow, action, additional_tags, state, cap
     end
 
     local function add_label()
-        caption = (tooltip ~= nil) and {"", caption, " [img=info]"} or caption
+        caption = (tooltip ~= nil) and {"", caption, " [img=info]"}--[[@as LocalisedString]] or caption
         label = flow.add{type="label", caption=caption, tooltip=tooltip}
     end
 
@@ -247,6 +247,15 @@ function _gui.compile_elem_filter(data_type)
         table.insert(names, proto.name)
     end
     return {{filter="name", name=names}}
+end
+
+
+local timescale_map = {[1] = "second", [60] = "minute"}
+
+---@param timescale Timescale
+---@return string
+function _gui.timescale_as_string(timescale)
+    return timescale_map[timescale]
 end
 
 return _gui
