@@ -1,0 +1,153 @@
+name: Daily upstream sync (ClaudeMetz)
+
+on:
+  schedule:
+    # Runs once daily at 00:30 UTC
+    - cron: '30 0 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true  # allows pushing with the GITHUB_TOKEN
+
+      - name: Set git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote (ClaudeMetz)
+        run: |
+          # Use HTTPS so no SSH key is required on the runner. Replace if you prefer SSH and have keys configured.
+          UPSTREAM_URL="https://github.com/ClaudeMetz/FactoryPlanner.git"
+          if git remote | grep -q "^ClaudeMetz$"; then
+            git remote set-url ClaudeMetz "$UPSTREAM_URL"
+          else
+            git remote add ClaudeMetz "$UPSTREAM_URL"
+          fi
+
+      - name: Fetch upstream
+        run: git fetch --no-tags --no-recurse-submodules ClaudeMetz master
+
+      - name: Merge upstream/master
+        id: merge
+        run: |
+          set -euo pipefail
+
+          # Try a fast-forward or merge; preserve conflicts for custom resolution
+          if git merge --no-edit --no-ff ClaudeMetz/master; then
+            echo "merge_status=merged" >> $GITHUB_OUTPUT
+          else
+            echo "merge_status=conflicts" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Auto-resolve info.json and changelog.txt; bump upstream version +700
+        if: always()
+        env:
+          UPSTREAM_REMOTE: ClaudeMetz
+          INFO_PATH: modfiles/info.json
+          CHANGELOG_PATH: modfiles/changelog.txt
+        run: |
+          set -euo pipefail
+
+          # Ensure upstream info.json is available
+          if git show "$UPSTREAM_REMOTE/master:$INFO_PATH" >/dev/null 2>&1; then
+            upstream_version=$(git show "$UPSTREAM_REMOTE/master:$INFO_PATH" | jq -r '.version')
+          else
+            echo "No upstream info.json found at $UPSTREAM_REMOTE/master:$INFO_PATH" >&2
+            upstream_version=""
+          fi
+
+          # Compute bumped version only if upstream_version looks like X.Y.Z
+          bumped_version=""
+          if [[ -n "$upstream_version" && "$upstream_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major=${BASH_REMATCH[1]}
+            minor=${BASH_REMATCH[2]}
+            patch=${BASH_REMATCH[3]}
+            new_patch=$((patch + 700))
+            bumped_version="${major}.${minor}.${new_patch}"
+          fi
+
+          # If info.json exists in the repo (merged or not), update its version to bumped_version when available
+          if [[ -n "$bumped_version" && -f "$INFO_PATH" ]]; then
+            echo "Setting $INFO_PATH version -> $bumped_version"
+            tmpfile=$(mktemp)
+            jq --arg v "$bumped_version" '.version = $v' "$INFO_PATH" > "$tmpfile"
+            mv "$tmpfile" "$INFO_PATH"
+            git add "$INFO_PATH"
+          elif [[ -n "$bumped_version" ]]; then
+            # No existing info.json in tree - create it from upstream and bump
+            git show "$UPSTREAM_REMOTE/master:$INFO_PATH" > "$INFO_PATH"
+            tmpfile=$(mktemp)
+            jq --arg v "$bumped_version" '.version = $v' "$INFO_PATH" > "$tmpfile"
+            mv "$tmpfile" "$INFO_PATH"
+            git add "$INFO_PATH"
+          else
+            echo "No bumped version could be computed from upstream; skipping info.json bump"
+          fi
+
+          # Merge changelogs: prefer upstream changelog then append any unique lines from our changelog
+          if git show "$UPSTREAM_REMOTE/master:$CHANGELOG_PATH" >/dev/null 2>&1; then
+            git show "$UPSTREAM_REMOTE/master:$CHANGELOG_PATH" > /tmp/upstream_changelog.txt || true
+          else
+            echo "" > /tmp/upstream_changelog.txt
+          fi
+
+          if [[ -f "$CHANGELOG_PATH" ]]; then
+            # Our current changelog (after merge or before)
+            cat "$CHANGELOG_PATH" > /tmp/our_changelog.txt
+          else
+            echo "" > /tmp/our_changelog.txt
+          fi
+
+          # Produce merged changelog: upstream first, then add our lines not already present (preserves upstream ordering)
+          awk '!seen[$0]++' /tmp/upstream_changelog.txt /tmp/our_changelog.txt > /tmp/merged_changelog.txt || true
+          mv /tmp/merged_changelog.txt "$CHANGELOG_PATH" || true
+          git add "$CHANGELOG_PATH" || true
+
+          # Add all remaining files in case of automatic conflict resolution for other files
+          git add -A
+
+          # Commit if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit after auto-resolution"
+          else
+            git commit -m "chore: merge upstream ClaudeMetz/master — auto-resolve info.json and changelog" || true
+          fi
+
+      - name: Create tag from info.json and push changes
+        env:
+          INFO_PATH: modfiles/info.json
+        run: |
+          set -euo pipefail
+
+          if [[ -f "$INFO_PATH" ]]; then
+            version=$(jq -r '.version' "$INFO_PATH")
+            if [[ -n "$version" ]]; then
+              tag_name="v${version}"
+              echo "Tagging with $tag_name"
+              # If tag exists remotely, update it (force)
+              git tag -f "$tag_name"
+              git push origin --follow-tags --no-verify --no-atomic HEAD:refs/heads/master || true
+              git push origin --tags --force || true
+            else
+              echo "No version found in $INFO_PATH; skipping tag"
+            fi
+          else
+            echo "$INFO_PATH not found; skipping tag"
+          fi
+
+      - name: Push branch if any commits
+        run: |
+          set -euo pipefail
+          # Push current branch
+          git push origin HEAD:refs/heads/master || true
+
