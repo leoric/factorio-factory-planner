@@ -159,7 +159,8 @@ function generator.recipes.generate()
                 emissions_multiplier = proto.emissions_multiplier,
                 allowed_effects = proto.allowed_effects,  -- can be nil
                 allowed_module_categories = proto.allowed_module_categories,  -- can be nil
-                maximum_productivity = math.floor(proto.maximum_productivity + 1e-4),
+                maximum_productivity = math.floor(proto.maximum_productivity
+                    * MAGIC_NUMBERS.effect_precision + 1e-4),
                 productivity_recipe = (productivity_recipes[proto.name]) and proto.name or nil,
                 surface_conditions = proto.surface_conditions,
                 recycling = recycling_recipes[proto.name],
@@ -371,7 +372,7 @@ function generator.recipes.generate()
                 local product_name, product_amount = fluid_proto.name, 1.0
                 if output ~= nil and output.filter ~= nil then
                     product_name = output.filter.name
-                    product_amount = 1 * (input.filter--[[@cast -nil]].heat_capacity / output.filter.heat_capacity)
+                    product_amount = 1 * (fluid_proto.heat_capacity / output.filter.heat_capacity)
                     boiler_recipe.sprite = "fluid/" .. output.filter.name
                 end
                 local products = {{type="fluid", name=product_name, amount=product_amount,
