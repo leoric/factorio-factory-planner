@@ -188,8 +188,9 @@ function Floor:check_product_compatibility(object)
     local recipe = relevant_line.recipe  ---@cast recipe -nil
     local producing = (recipe.production_type == "produce")
 
-    local relevant_items = producing and recipe.proto.products or recipe.proto.ingredients
-    ---@cast relevant_items -nil
+    -- Use the recipe's net items, as the picker only offers recipes that actually net the
+    -- item in question, which the raw prototype items don't take into account
+    local relevant_items = producing and recipe.products or recipe.ingredients
 
     ---@param type string
     ---@param name string
@@ -297,9 +298,10 @@ local function unpack(packed_self)
 end
 
 
+---@param player LuaPlayer
 ---@return boolean valid
-function Floor:validate()
-    self.valid = self:_validate()
+function Floor:validate(player)
+    self.valid = self:_validate(player)
     return self.valid
 end
 

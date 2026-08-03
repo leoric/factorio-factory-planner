@@ -278,6 +278,7 @@ function Machine:paste(object, player)
         if object.fuel then
             self.fuel = object.fuel
             self.fuel--[[@cast -nil]].parent = self
+            self:normalize_fuel(player)
         end
 
         self.module_set = object.module_set
@@ -335,8 +336,9 @@ local function unpack(packed_self, parent)
     return unpacked_self
 end
 
+---@param player LuaPlayer
 ---@return Machine clone
-function Machine:clone()
+function Machine:clone(player)
     local clone = unpack(self:pack(false), self.parent)
 
     -- Copy these over so we don't need to run the solver
@@ -346,13 +348,14 @@ function Machine:clone()
         clone.fuel.satisfied_amount = self.fuel.satisfied_amount
     end
 
-    clone:validate()
+    clone:validate(player)
     return clone
 end
 
 
+---@param player LuaPlayer
 ---@return boolean valid
-function Machine:validate()
+function Machine:validate(player)
     local recipe_category = self.parent.recipe.proto.combined_category
     if recipe_category ~= self.proto.combined_category then
         local corresponding_proto = prototyper.util.find("machines", self.proto.name, recipe_category)  ---@as FPMachinePrototype?
@@ -390,10 +393,10 @@ function Machine:validate()
             }
             self.fuel = Fuel.init(self, fuel_proto)
         end
-        if self.fuel then self.valid = self.fuel:validate() and self.valid end
+        if self.fuel then self.valid = self.fuel:validate(player) and self.valid end
     end
 
-    self.valid = self.module_set:validate() and self.valid
+    self.valid = self.module_set:validate(player) and self.valid
 
     return self.valid
 end
